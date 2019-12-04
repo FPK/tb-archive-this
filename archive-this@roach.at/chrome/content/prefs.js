@@ -1,6 +1,6 @@
 "use strict";
 
-Components.utils.import("resource://gre/modules/Services.jsm");
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var ArchiveThisPrefs = {
 
@@ -84,7 +84,7 @@ setPickerElement : function(pickerID,uri)
 
   if (uri)
   {
-    var msgfolder = MailUtils.getFolderForURI(uri, true);
+    var msgfolder = MailUtils.getExistingFolder(uri, true);
     if (msgfolder && msgfolder.canFileMessages)
     {
       picker.menupopup.selectFolder(msgfolder);
@@ -416,8 +416,8 @@ onLoad : function()
   }
   catch (err)
   {
-    Components.utils.import("resource://gre/modules/AddonManager.jsm");
-    AddonManager.getAddonByID(MY_ID,function(addon) {
+    var { AddonManager } = ChromeUtils.import("resource://gre/modules/AddonManager.jsm");
+    AddonManager.getAddonByID(MY_ID).then(function(addon) {
       ArchiveThisPrefs.at_addon = addon;
 
       ArchiveThisPrefs.at_version = addon.version;
@@ -532,22 +532,21 @@ onLoad : function()
        this.console.logStringMessage("Archive This: Translation submission disabled in this version");
      }
   }
-},
+  document.addEventListener("dialogaccept", function(event) {
+    ArchiveThisPrefs.prefs.setCharPref("presets",ArchiveThisPrefs.preset.join('|'));
+    ArchiveThisPrefs.prefs.setCharPref("keys",ArchiveThisPrefs.keys.join('|'));
+    ArchiveThisPrefs.prefs.setBoolPref("debug",this.debug);
 
-onAccept : function()
-{
-  this.prefs.setCharPref("presets",this.preset.join('|'));
-  this.prefs.setCharPref("keys",this.keys.join('|'));
-  this.prefs.setBoolPref("debug",this.debug);
+    var list = document.getElementById('archive-this-filter-list');
+    var filters = new Array();
+    for (var i=0; i<list.getRowCount(); i++)
+    {
+      filters.push(list.getItemAtIndex(i).value);
+    }
 
-  var list = document.getElementById('archive-this-filter-list');
-  var filters = new Array();
-  for (var i=0; i<list.getRowCount(); i++)
-  {
-    filters.push(list.getItemAtIndex(i).value);
+    ArchiveThisPrefs.prefs.setCharPref("filters",filters.join('||'));
   }
-
-  this.prefs.setCharPref("filters",filters.join('||'));
+  );
 },
 
 shutdown: function()
@@ -731,7 +730,7 @@ decorateRule : function (rule)
     return;
   }
 
-  var msgfolder = MailUtils.getFolderForURI(val[3], true);
+  var msgfolder = MailUtils.getExistingFolder(val[3], true);
   var folderName;
   if (msgfolder)
   {
